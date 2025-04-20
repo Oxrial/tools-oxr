@@ -12,9 +12,10 @@
 	"app": {
 		"windows": [
 			{
-				"title": "tools-oxr",
+				"title": "ffmpeg flv 合并工具",
 				"width": 800,
-				"height": 600
+				"height": 600,
+				"dragDropEnabled": false
 			}
 		],
 		"security": {
