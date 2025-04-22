@@ -1,8 +1,8 @@
+use crate::macros::tauri_command;
 use std::fs;
 use std::io::Write;
 use std::process::Command;
 use tauri::command;
-use crate::macros::tauri_command;
 
 #[command]
 pub fn scan_flv_files(path: String) -> Vec<String> {
@@ -44,6 +44,31 @@ pub fn generate_filelist_and_merge(files: Vec<String>, folder_path: String) {
 
     if !status.success() {
         panic!("FFmpeg 合并失败");
+    }
+}
+#[command]
+pub fn conver_ext(folder_path: String, input_name: String, ext: String) {
+    //ffmpeg -i '001-Ferrari__Instrumenta.mp4' -vn -ar 44100 -ac 2 -ab 320k 'ferrari_banzou.wav'
+    let input_path = format!("'{}/{}'", folder_path, inputName);
+    let output_path = format!("'{}/{}.{}'", folder_path, inputName, ext);
+    let status = Command::new("ffmpeg")
+        .args([
+            "-i",
+            &input_path,
+            "-vn",
+            "-ar",
+            "44100",
+            "-ac",
+            "2",
+            "-ab",
+            "320k",
+            &output_path,
+        ])
+        .status()
+        .expect("FFmpeg 执行失败");
+
+    if !status.success() {
+        panic!("FFmpeg 转换失败");
     }
 }
 
