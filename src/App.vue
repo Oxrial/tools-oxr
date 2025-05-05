@@ -1,24 +1,29 @@
 <template>
 	<div class="main">
+		<div class="nav-bar">
+			<span>Tools-OXR</span>
+			<span class="theme">白<ElSwitch v-model="theme" @click="() => toggleDark()" />黑</span>
+		</div>
 		<div class="operation-bar">
 			<ElButton @click="selectFolder" type="primary" plain> 选择文件夹 </ElButton>
 			<ElButtonGroup>
-				<el-input
+				<ElInput
 					v-model="folderPath"
 					placeholder="键入地址"
 					@focus="() => (disabledScan = true)"
 					@blur="() => (disabledScan = false)"
 				>
-				</el-input>
+				</ElInput>
+				<ElInput v-model="fileName" placeholder="文件名" style="width: 30rem"> </ElInput>
 				<ElButton :disabled="!sortedFiles.length" type="success" plain @click="confirmAndMerge"
 					>生成 ({{ submit.length }}/{{ sortedFiles.length }})</ElButton
 				>
 			</ElButtonGroup>
 		</div>
 		<div>
-			<ElCard class="flv-list">
+			<ElCard class="flv-list" v-if="sortedFiles.length">
 				<VueDraggable v-model="sortedFiles" ghostClass="ghost" target="tbody" :animation="150">
-					<el-table :data="sortedFiles" :cell-class-name="renderCellClass" height="calc(100vh - 7rem)">
+					<el-table :data="sortedFiles" :cell-class-name="renderCellClass" height="calc(100vh - 12rem)">
 						<el-table-column label="文件名" prop="name" :width="getColumnWidth('name', sortedFiles)" />
 						<el-table-column show-overflow-tooltip="" label="全路径" prop="id" />
 						<el-table-column label="操作" width="70">
@@ -41,8 +46,14 @@ import { invoke } from '@tauri-apps/api/core'
 import { VueDraggable } from 'vue-draggable-plus'
 import { getColumnWidth } from './index'
 import { join } from 'path-browserify'
+import { useDark, useToggle } from '@vueuse/core'
+
+const theme = ref(false)
+const isDark = useDark()
+const toggleDark = useToggle(isDark)
 
 const folderPath = ref('')
+const fileName = ref('')
 const files = ref([])
 const sortedFiles = ref([])
 const disabledScan = ref(false)
@@ -55,13 +66,22 @@ const selectFolder = async () => {
 	}
 }
 const scanFlvFiles = async (folder) => {
-	if (disabledScan.value || !folderPath.value.length) return
+	if (disabledScan.value || !folder.length) return
 	files.value = await invoke('scan_flv_files', { path: folder })
-	sortedFiles.value = files.value.map((f) => ({
-		name: f.substring(f.lastIndexOf('/') + 1),
-		id: join(folder, f),
-		delete: false
-	}))
+	sortedFiles.value.splice(
+		0,
+		sortedFiles.value.length,
+		...files.value.map((f) => ({
+			name: f.substring(f.lastIndexOf('/') + 1),
+			id: join(folder, f),
+			delete: false
+		}))
+	)
+	if (sortedFiles.value.length) {
+		const n = sortedFiles.value[0].name
+		fileName.value =
+			folder.substring(folder.lastIndexOf('\\') + 1) + n.substring(n.lastIndexOf('-'), n.indexOf('.'))
+	}
 	console.log('🚀 ~ selectFolder ~ files:', sortedFiles)
 }
 
@@ -79,7 +99,8 @@ const confirmAndMerge = async () => {
 	try {
 		await invoke('generate_filelist_and_merge', {
 			files: submit.value,
-			folderPath: folderPath.value
+			folderPath: folderPath.value,
+			fileName: fileName.value
 		})
 		alert('视频合并完成！')
 	} catch (error) {
@@ -90,10 +111,25 @@ const confirmAndMerge = async () => {
 <style scoped lang="scss">
 .main {
 	padding: 20px 20px 0;
+	.nav-bar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding-bottom: 20px;
+		.title {
+			font-size: 2rem;
+			font-weight: bold;
+		}
+		.theme {
+			display: flex;
+			align-items: center;
+		}
+	}
 }
 .operation-bar {
 	width: 100%;
 	display: flex;
+	padding-bottom: 20px;
 	> :last-child {
 		flex: 1;
 		display: flex;

@@ -1,4 +1,4 @@
-use crate::macros::tauri_command;
+use flvparse::{FlvFile, FlvTag, FlvTagData};
 use std::fs;
 use std::io::Write;
 use std::process::Command;
@@ -20,37 +20,75 @@ pub fn scan_flv_files(path: String) -> Vec<String> {
 }
 
 #[command]
-pub fn generate_filelist_and_merge(files: Vec<String>, folder_path: String) {
-    let mut filelist = fs::File::create(format!("{}/filelist.txt", folder_path)).unwrap();
+pub fn generate_filelist_and_merge(files: Vec<String>, folder_path: String, file_name: String) {
     for file in &files {
-        writeln!(filelist, "file '{}'", file).unwrap();
-    }
+        let bytes = std::fs::read(&file).expect("读取文件失败");
+        let (_, header) = flvparse::FlvFileBody::parse(&bytes).unwrap();
+        // 使用 flvparse 解析
 
-    let output_path = format!("{}/output.mp4", folder_path);
+        // 提取信息
+        let info = format!(
+            "FLV文件基本信息：{}\n\
+            - first_previous_tag_size: {}",
+            file, header.first_previous_tag_size
+        );
+        println!("{:?}", header.tags);
+        println!("info {}", info);
+    }
+    // let mut filelist = fs::File::create(format!("{}/filelist.txt", folder_path)).unwrap();
+    // for file in &files {
+    // writeln!(filelist, "file '{}'", newfile).unwrap();
+    // }
+
+    // let output_path = format!("{}/../{}.mp4", folder_path, file_name);
+    // let status = Command::new("ffmpeg")
+    //     .args([
+    //         "-f",
+    //         "concat",
+    //         "-safe",
+    //         "0",
+    //         "-i",
+    //         &format!("{}/filelist.txt", folder_path),
+    //         "-c",
+    //         "copy",
+    //         &output_path,
+    //     ])
+    //     .status()
+    //     .expect("FFmpeg 执行失败");
+
+    // if !status.success() {
+    //     panic!("FFmpeg 合并失败");
+    // }
+}
+fn fix(file: String) -> std::string::String {
+    let newfile = format!("{}_fix.flv", file);
     let status = Command::new("ffmpeg")
-        .args([
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            &format!("{}/filelist.txt", folder_path),
-            "-c",
-            "copy",
-            &output_path,
-        ])
-        .status()
-        .expect("FFmpeg 执行失败");
+    .args([
+        "-i",
+        &file,
+        "-vf",
+        "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,fps=60",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "medium",
+        "-profile:v",
+        "high","-level","4.1","-c:a","aac","-b:a","320k","-flvflags","+add_keyframe_index","-f","flv",
+        &newfile,
+    ])
+    .status()
+    .expect("FFmpeg 执行失败");
 
     if !status.success() {
         panic!("FFmpeg 合并失败");
     }
+    return newfile;
 }
 #[command]
 pub fn conver_ext(folder_path: String, input_name: String, ext: String) {
     //ffmpeg -i '001-Ferrari__Instrumenta.mp4' -vn -ar 44100 -ac 2 -ab 320k 'ferrari_banzou.wav'
-    let input_path = format!("'{}/{}'", folder_path, inputName);
-    let output_path = format!("'{}/{}.{}'", folder_path, inputName, ext);
+    let input_path = format!("'{}/{}'", folder_path, input_name);
+    let output_path = format!("'{}/{}.{}'", folder_path, input_name, ext);
     let status = Command::new("ffmpeg")
         .args([
             "-i",
@@ -71,16 +109,3 @@ pub fn conver_ext(folder_path: String, input_name: String, ext: String) {
         panic!("FFmpeg 转换失败");
     }
 }
-
-// pub fn run() {
-//     tauri::Builder::default()
-//         .plugin(tauri_plugin_dialog::init()) // 初始化 Dialog 插件
-//         .invoke_handler(tauri::generate_handler![
-//             scan_flv_files,
-//             generate_filelist_and_merge
-//         ])
-//         .run(tauri::generate_context!())
-//         .expect("error while running tauri application");
-// }
-tauri_command!(scan_flv_files);
-tauri_command!(generate_filelist_and_merge);
